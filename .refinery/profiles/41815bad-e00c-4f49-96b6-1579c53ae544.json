@@ -1,5 +1,5 @@
 {
-  "doc_id": "27ffdea3-469a-422a-a89e-13ecc0a5738f",
+  "doc_id": "41815bad-e00c-4f49-96b6-1579c53ae544",
   "origin_type": "native_digital",
   "layout_complexity": "single_column",
   "language": "en",
@@ -7,7 +7,7 @@
   "extraction_metrics": {
     "character_density": 0.0023672179309434213,
     "whitespace_ratio": 0.8391756828240877,
-    "image_to_page_ratio": 0.0
+    "image_to_page_ratio": 0.09518485359003359
   },
   "estimated_cost_tier": "low"
 }
