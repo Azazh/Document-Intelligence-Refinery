@@ -110,9 +110,13 @@ class TriageAgent:
                 image_to_page_ratio_scanned = self.rules["image_to_page_ratio_scanned"]
                 ambiguous = False
                 if char_density < char_density_scanned:
-                    origin_type = "scanned_image"
-                    if abs(char_density - char_density_scanned) < 0.1 * char_density_scanned:
+                    if image_to_page_ratio < image_to_page_ratio_scanned:
+                        origin_type = "mixed"
                         ambiguous = True
+                    else:
+                        origin_type = "scanned_image"
+                        if abs(char_density - char_density_scanned) < 0.1 * char_density_scanned:
+                            ambiguous = True
                 elif image_to_page_ratio > image_to_page_ratio_scanned:
                     origin_type = "scanned_image"
                     if abs(image_to_page_ratio - image_to_page_ratio_scanned) < 0.05:
@@ -223,7 +227,7 @@ class TriageAgent:
             for c in page.chars:
                 all_x.append(float(c["x0"]))
         if not all_x:
-            return "unknown"
+            return "single_column"
         x_array = np.array(all_x).reshape(-1, 1)
 
         # Try k-means clustering (2 clusters)
