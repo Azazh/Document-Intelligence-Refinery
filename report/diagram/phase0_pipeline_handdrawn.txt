@@ -1,0 +1,45 @@
+# Phase 0 Extraction Pipeline (Hand-Drawn Style)
+
+This diagram represents the actual workflow for Phase 0:
+
+```
+          +------------------+
+          |    PDF Input     |
+          +------------------+
+                   |
+                   v
+      +---------------------------+
+      |   pdfplumber Analysis     |
+      +---------------------------+
+                   |
+                   v
+          +------------------+
+          |   Type?          |
+          +------------------+
+         /        |         \
+        /         |          \
+   digital    scanned      mixed
+     |           |           |
+     v           v           v
++---------------------+   +------------------------+
+|  Docling Analysis   |   | Skip Docling (Timeout) |
++---------------------+   +------------------------+
+     |                           |
+     v                           v
++---------------------+   +----------------------+
+|  Docling Results    |   |  No Docling Output   |
++---------------------+   +----------------------+
+
+(Meanwhile, from pdfplumber Analysis:)
+      |
+      v
++----------------------+
+| PDFPlumber Results   |
++----------------------+
+```
+
+This diagram shows:
+- All PDFs go through pdfplumber.
+- Type is determined (digital, scanned, mixed).
+- Digital and scanned go to Docling; mixed is skipped due to timeout.
+- Results are collected from both tools as appropriate.
