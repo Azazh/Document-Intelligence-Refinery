@@ -1,0 +1,6 @@
+# Extraction rules for TriageAgent
+# Thresholds and heuristics for document profiling
+char_density_scanned: 0.0002
+char_density_digital: 0.001
+image_to_page_ratio_scanned: 0.5
+# Add more rules as needed for extensibility
