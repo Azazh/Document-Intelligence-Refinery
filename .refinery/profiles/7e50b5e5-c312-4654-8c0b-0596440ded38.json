@@ -1,0 +1,13 @@
+{
+  "doc_id": "7e50b5e5-c312-4654-8c0b-0596440ded38",
+  "origin_type": "scanned_image",
+  "layout_complexity": "single_column",
+  "language": "en",
+  "domain_hint": "legal",
+  "extraction_metrics": {
+    "character_density": 0.0,
+    "whitespace_ratio": 1.0,
+    "image_to_page_ratio": 0.0
+  },
+  "estimated_cost_tier": "high"
+}
