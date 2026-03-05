@@ -1,6 +1,10 @@
 # Makefile for Document Intelligence Pipeline
 
-.PHONY: run test clean
+
+.PHONY: install run test clean
+
+install:
+	pip install .
 
 run:
 	PYTHONPATH=. python3 src/main.py
