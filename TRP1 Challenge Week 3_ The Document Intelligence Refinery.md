@@ -145,7 +145,7 @@ Critical Use Case: When a user asks "What are the capital expenditure projection
 The front-end of the refinery. A LangGraph agent with three tools: **pageindex\_navigate** (tree traversal), **semantic\_search** (vector retrieval), and **structured\_query** (SQL over extracted fact tables). Every answer must include provenance: the document name, page number, and bounding box of the source.
 
 # **5\. Implementation Curriculum**
-  
+
 The following phases are indicatory. The actual challenge requires a working end-to-end system. Your innovation in identifying gaps and engineering solutions beyond these phases is expected and rewarded.
 
 ## **Phase 0: Domain Onboarding — The Document Science Primer**

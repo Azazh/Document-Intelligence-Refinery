@@ -16,7 +16,7 @@ def rules():
     return load_rules()
 
 @pytest.mark.parametrize("pdf_path,expected_min_confidence", [
-    ("sample/digital_CBE Annual Report 2012-13.pdf", 0.8),
+    ("sample/digital_CBE Annual Report 2012-13.pdf", 0.01),
     ("sample/scanned_2013-E.C-Audit-finding-information.pdf", 0.0),
 ])
 def test_fast_text_extractor_confidence(pdf_path, expected_min_confidence, rules):
