@@ -36,11 +36,13 @@ class ExtractionRouter:
         import time
         start_time = time.time()
         rules = self.rules
+        router_cfg = rules.get("router", {})
         meta = {"escalation_occurred": False, "low_confidence": False, "human_review_required": False}
+
         # Strategy A: FastTextExtractor
         if profile.get("origin_type") == "native_digital" and profile.get("layout_complexity") == "single_column":
             result, confidence = self.fast_text.extract(pdf_path)
-            if confidence >= rules["router"]["fast_text_confidence_min"]:
+            if confidence >= router_cfg.get("fast_text_confidence_min", 0.8):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "fast_text", confidence, 0.0, elapsed)
                 return {"strategy_used": "fast_text", "confidence": confidence, **meta, **result}
@@ -48,14 +50,14 @@ class ExtractionRouter:
             meta["low_confidence"] = True
             # Escalate to layout extractor if low confidence
             layout_result, layout_conf = self.layout.extract(pdf_path)
-            if layout_conf >= rules["router"]["layout_confidence_min"]:
+            if layout_conf >= router_cfg.get("layout_confidence_min", 0.7):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "layout", layout_conf, 0.0, elapsed)
                 return {"strategy_used": "layout", "confidence": layout_conf, **meta, **layout_result}
             # Escalate to vision extractor if still low confidence
             meta["escalation_occurred"] = True
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
-            if vision_conf >= rules["router"]["vision_confidence_min"]:
+            if vision_conf >= router_cfg.get("vision_confidence_min", 0.6):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
                 return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
@@ -64,10 +66,11 @@ class ExtractionRouter:
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
             return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+
         # Strategy B: LayoutExtractor for multi-column or table-heavy
         if profile.get("layout_complexity") in ["multi_column", "table_heavy", "mixed"] or profile.get("origin_type") == "mixed":
             result, confidence = self.layout.extract(pdf_path)
-            if confidence >= rules["router"]["layout_confidence_min"]:
+            if confidence >= router_cfg.get("layout_confidence_min", 0.7):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "layout", confidence, 0.0, elapsed)
                 return {"strategy_used": "layout", "confidence": confidence, **meta, **result}
@@ -75,7 +78,7 @@ class ExtractionRouter:
             meta["low_confidence"] = True
             # Escalate to vision extractor if low confidence
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
-            if vision_conf >= rules["router"]["vision_confidence_min"]:
+            if vision_conf >= router_cfg.get("vision_confidence_min", 0.6):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
                 return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
@@ -83,10 +86,11 @@ class ExtractionRouter:
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
             return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+
         # Strategy C: VisionExtractor for scanned_image or final fallback
         if profile.get("origin_type") == "scanned_image":
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
-            if vision_conf >= rules["router"]["vision_confidence_min"]:
+            if vision_conf >= router_cfg.get("vision_confidence_min", 0.6):
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
                 return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
@@ -94,4 +98,5 @@ class ExtractionRouter:
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
             return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+
         return {"strategy_used": "escalation_needed", "confidence": 0.0, **meta, "error": "No suitable strategy implemented yet."}

@@ -16,6 +16,12 @@ class DocumentProfile(BaseModel):
 
 # --- BoundingBox ---
 class BoundingBox(BaseModel):
+    """
+    Represents a bounding box on a page.
+    Invariants:
+        - x1 >= x0, y1 >= y0
+        - page >= 1
+    """
     x0: float
     y0: float
     x1: float
@@ -29,6 +35,7 @@ class BoundingBox(BaseModel):
         if field.name == 'y1' and 'y0' in values and v < values['y0']:
             raise ValueError('y1 must be >= y0')
         return v
+
     @validator('page')
     def check_page_positive(cls, v):
         if v < 1:
@@ -44,6 +51,13 @@ class ProvenanceChain(BaseModel):
 
 # --- LDU (Logical Document Unit) ---
 class LDU(BaseModel):
+    """
+    Logical Document Unit (LDU).
+    Invariants:
+        - content must be non-empty
+        - page_refs must be non-empty and all >= 1
+        - token_count > 0
+    """
     ldu_id: str
     content: str
     chunk_type: Literal['text', 'table', 'figure', 'list', 'header', 'other']
@@ -59,6 +73,7 @@ class LDU(BaseModel):
         if not v or not v.strip():
             raise ValueError('LDU content must be non-empty')
         return v
+
     @validator('page_refs')
     def page_refs_not_empty(cls, v):
         if not v:
@@ -66,6 +81,7 @@ class LDU(BaseModel):
         if any(page < 1 for page in v):
             raise ValueError('All page_refs must be >= 1')
         return v
+
     @validator('token_count')
     def token_count_positive(cls, v):
         if v < 1:
@@ -74,6 +90,11 @@ class LDU(BaseModel):
 
 # --- TableCell ---
 class TableCell(BaseModel):
+    """
+    Represents a cell in a table.
+    Invariants:
+        - row, col >= 0
+    """
     text: str
     bbox: BoundingBox
     row: int
@@ -81,18 +102,27 @@ class TableCell(BaseModel):
 
 # --- TableBlock ---
 class TableBlock(BaseModel):
+    """
+    Represents a table block with headers and rows.
+    """
     headers: List[str]
     rows: List[List[TableCell]]
     bbox: BoundingBox
 
 # --- FigureBlock ---
 class FigureBlock(BaseModel):
+    """
+    Represents a figure block with caption and bounding box.
+    """
     caption: str
     bbox: BoundingBox
     page: int
 
 # --- ExtractedDocument ---
 class ExtractedDocument(BaseModel):
+    """
+    Represents the full extracted content of a document.
+    """
     doc_id: UUID
     text_blocks: List[LDU]
     tables: List[TableBlock]
@@ -101,6 +131,12 @@ class ExtractedDocument(BaseModel):
 
 # --- PageIndex Section Node ---
 class PageIndexSection(BaseModel):
+    """
+    Represents a section in the page index hierarchy.
+    Invariants:
+        - page_end >= page_start
+        - child_sections must not overlap in page ranges
+    """
     section_id: str
     title: str
     page_start: int

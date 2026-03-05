@@ -39,12 +39,13 @@ class VisionExtractor(BaseExtractor):
             return {"error": "Budget cap exceeded"}, 0.0, total_cost
         ldu_list = []
         for i in range(num_pages):
+            bbox = [0, 0, 100, 100]  # Placeholder bbox for demo
             ldu_list.append({
                 "ldu_id": str(uuid4()),
                 "content": "Extracted by vision model",
                 "chunk_type": "text",
                 "page_refs": [i+1],
-                "bounding_box": None,
+                "bounding_box": bbox,
                 "parent_section": None,
                 "token_count": 5,
                 "content_hash": str(hash(f"Extracted by vision model {i+1}")),

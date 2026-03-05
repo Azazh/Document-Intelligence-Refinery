@@ -47,21 +47,22 @@ class FastTextExtractor(BaseExtractor):
                         fontnames.add(c.get("fontname", ""))
                 except Exception:
                     pass
+                bbox = [0, 0, page.width, page.height]  # Use full page as bounding box if none
                 ldu_list.append({
                     "ldu_id": str(uuid4()),
                     "content": text,
                     "chunk_type": "text",
                     "page_refs": [i+1],
-                    "bounding_box": None,
+                    "bounding_box": bbox,
                     "parent_section": None,
                     "token_count": len(text.split()),
                     "content_hash": str(hash(text)),
-                    "metadata": {"char_count": char_count, "area": area, "image_count": len(images)}
+                    "metadata": {"char_count": char_count, "area": area, "image_count": len(images), "fontnames": list(fontnames)}
                 })
             char_density = total_chars / total_area if total_area > 0 else 0
             image_ratio = total_images / len(pdf.pages) if pdf.pages else 0
             font_metadata_present = len(fontnames) > 0
-            # Config-driven confidence scoring
+            # Config-driven confidence scoring (always includes font metadata)
             weights = self.rules.get("confidence_weights", {})
             conf = 1.0
             if char_density < self.rules.get("char_density_digital", 0.07):
@@ -103,12 +104,4 @@ class FastTextExtractor(BaseExtractor):
                 conf *= 0.7
             if total_chars < 100 * len(pdf.pages):
                 conf *= 0.5
-            result = {
-                "pages": pages,
-                "char_density": char_density,
-                "image_ratio": image_ratio,
-                "font_metadata_present": font_metadata_present,
-                "total_chars": total_chars,
-                "total_images": total_images,
-            }
-            return result, conf
+            # ...existing code...
