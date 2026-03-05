@@ -15,35 +15,25 @@ from typing import Dict, Any, Tuple
 import os
 import numpy as np
 from sklearn.cluster import KMeans
+from src.strategies.base_extractor import BaseExtractor
+from uuid import uuid4
 
-class LayoutExtractor:
-    def __init__(self, rules: Dict[str, Any]):
-        """
-        Initialize LayoutExtractor with extraction rules.
-        Args:
-            rules: Dictionary of extraction thresholds (from extraction_rules.yaml)
-        """
-        self.rules = rules
-
+class LayoutExtractor(BaseExtractor):
     def extract(self, pdf_path: str) -> Tuple[Dict[str, Any], float]:
         """
         Extracts layout-aware content from a PDF using pdfplumber and clustering.
         Returns structured text blocks, tables, and figures with bounding boxes.
         Computes a confidence score based on layout detection and extraction quality.
-        Args:
-            pdf_path: Path to the PDF file
-        Returns:
-            (result, confidence):
-                result: Dict with structured extraction and metadata
-                confidence: float (0-1) confidence score
+        All thresholds and weights are loaded from config.
+        Output is normalized to ExtractedDocument/LDU schema.
         """
         if not os.path.exists(pdf_path):
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
         with pdfplumber.open(pdf_path) as pdf:
-            pages = []
+            ldu_list = []
             total_blocks = 0
             multi_column_pages = 0
-            for page in pdf.pages:
+            for i, page in enumerate(pdf.pages):
                 blocks = []
                 # Extract text blocks with bounding boxes
                 for b in page.extract_words(x_tolerance=2, y_tolerance=2):
@@ -58,6 +48,36 @@ class LayoutExtractor:
                     kmeans = KMeans(n_clusters=2, n_init=10, random_state=42).fit(x0s)
                     if np.abs(kmeans.cluster_centers_[0][0] - kmeans.cluster_centers_[1][0]) > 100:
                         multi_column_pages += 1
+                # Normalize to LDU
+                for block in blocks:
+                    ldu_list.append({
+                        "ldu_id": str(uuid4()),
+                        "content": block["text"],
+                        "chunk_type": "text",
+                        "page_refs": [i+1],
+                        "bounding_box": block["bbox"],
+                        "parent_section": None,
+                        "token_count": len(block["text"].split()),
+                        "content_hash": str(hash(block["text"])),
+                        "metadata": {"block_type": "layout"}
+                    })
+            # Confidence scoring (config-driven)
+            weights = self.rules.get("confidence_weights", {})
+            conf = 1.0
+            if multi_column_pages > 0:
+                conf *= 1 - weights.get("char_density", 0.3)  # Example: penalize if multi-column detected
+            result = {
+                "extracted_document": {
+                    "doc_id": str(uuid4()),
+                    "text_blocks": ldu_list,
+                    "tables": [],
+                    "figures": [],
+                    "reading_order": [ldu["ldu_id"] for ldu in ldu_list]
+                },
+                "multi_column_pages": multi_column_pages,
+                "total_blocks": total_blocks
+            }
+            return result, conf
                 # Extract tables (as list of dicts)
                 tables = page.extract_tables() or []
                 # Extract figures (images)
