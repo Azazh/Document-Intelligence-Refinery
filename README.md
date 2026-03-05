@@ -33,55 +33,66 @@ README.md           # This file
 Remote origin: https://github.com/Azazh/Document-Intelligence-Refinery.git
 
 ## Setup Instructions
-1. **Clone the repository:**
-	```bash
-	git clone https://github.com/Azazh/Document-Intelligence-Refinery.git
-	cd Document-Intelligence-Refinery
-	```
-2. **Create and activate a virtual environment:**
-	```bash
-	python3 -m venv .venv
-	source .venv/bin/activate
-	```
-3. **Install dependencies:**
-	```bash
-	pip install -r requirements.txt
-	# or, if using pyproject.toml:
-	pip install .
-	```
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Azazh/Document-Intelligence-Refinery.git
+cd Document-Intelligence-Refinery
+```
+
+### 2. Create and activate a virtual environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install dependencies (via Makefile)
+```bash
+make install
+```
 
 ## Usage with Makefile
-Common development tasks are automated with the Makefile:
 
+### Common tasks (via Makefile)
+
+- **Install dependencies:**
+	```bash
+	make install
+	```
 - **Run the pipeline:**
-  ```bash
-  make run
-  # Optionally specify input in src/main.py or modify as needed
-  ```
-- **Run tests:**
-  ```bash
-  make test
-  ```
+	```bash
+	make run
+	# Edit src/main.py or pass arguments as needed
+	```
+- **Run all tests:**
+	```bash
+	make test
+	```
 - **Clean generated profiles:**
-  ```bash
-  make clean
-  ```
+	```bash
+	make clean
+	```
 
 ## Running the Pipeline
-1. **Prepare your documents:** Place PDFs or other supported files in the `data/` directory.
-2. **Run the main pipeline:**
+
+**Usage:**
+1. Place your PDFs or supported files in the `data/` directory.
+2. Run the pipeline:
 	```bash
+	make run
+	# or, for custom input:
 	python src/main.py --input data/<your-document>.pdf
 	```
-	- Outputs will be saved in `.refinery/profiles/` and `.refinery/extraction_ledger.jsonl`.
+	- Outputs: `.refinery/profiles/` (DocumentProfiles), `.refinery/extraction_ledger.jsonl` (extraction logs)
 
 ## Configuration
 - **Extraction rules:** Edit `rubric/extraction_rules.yaml` to adjust chunking and extraction thresholds.
 
 ## Testing
-Run all unit tests with:
+
+Run all unit tests:
 ```bash
-pytest tests/
+make test
 ```
 
 ## Output Artifacts

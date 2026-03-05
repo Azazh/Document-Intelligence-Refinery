@@ -21,6 +21,10 @@ from uuid import uuid4
 class LayoutExtractor(BaseExtractor):
     def extract(self, pdf_path: str) -> Tuple[Dict[str, Any], float]:
         """
+        Multi-signal confidence scoring:
+            - Multi-column detection (clustering)
+            - Block count (extraction quality)
+        Table and figure structures are preserved and normalized.
         Extracts layout-aware content from a PDF using pdfplumber and clustering.
         Returns structured text blocks, tables, and figures with bounding boxes.
         Computes a confidence score based on layout detection and extraction quality.
@@ -31,6 +35,8 @@ class LayoutExtractor(BaseExtractor):
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
         with pdfplumber.open(pdf_path) as pdf:
             ldu_list = []
+            table_list = []
+            figure_list = []
             total_blocks = 0
             multi_column_pages = 0
             for i, page in enumerate(pdf.pages):
@@ -61,42 +67,39 @@ class LayoutExtractor(BaseExtractor):
                         "content_hash": str(hash(block["text"])),
                         "metadata": {"block_type": "layout"}
                     })
-            # Confidence scoring (config-driven)
+                # Extract tables (preserve structure)
+                tables = page.extract_tables() or []
+                for t in tables:
+                    table_list.append({
+                        "headers": t[0] if t else [],
+                        "rows": t[1:] if len(t) > 1 else [],
+                        "bbox": [0, 0, page.width, page.height],
+                        "page": i+1
+                    })
+                # Extract figures (preserve structure)
+                figures = page.images or []
+                for f in figures:
+                    figure_list.append({
+                        "caption": f.get("caption", ""),
+                        "bbox": [f.get("x0", 0), f.get("top", 0), f.get("x1", 0), f.get("bottom", 0)],
+                        "page": i+1
+                    })
+            # Multi-signal confidence scoring
             weights = self.rules.get("confidence_weights", {})
             conf = 1.0
             if multi_column_pages > 0:
-                conf *= 1 - weights.get("char_density", 0.3)  # Example: penalize if multi-column detected
+                conf *= 1 - weights.get("char_density", 0.3)  # Penalize if multi-column detected
+            if total_blocks < 10 * len(pdf.pages):
+                conf *= 0.7
             result = {
                 "extracted_document": {
                     "doc_id": str(uuid4()),
                     "text_blocks": ldu_list,
-                    "tables": [],
-                    "figures": [],
+                    "tables": table_list,
+                    "figures": figure_list,
                     "reading_order": [ldu["ldu_id"] for ldu in ldu_list]
                 },
                 "multi_column_pages": multi_column_pages,
                 "total_blocks": total_blocks
-            }
-            return result, conf
-                # Extract tables (as list of dicts)
-                tables = page.extract_tables() or []
-                # Extract figures (images)
-                figures = page.images or []
-                pages.append({
-                    "blocks": blocks,
-                    "tables": tables,
-                    "figures": figures,
-                })
-            layout_complexity = "multi_column" if multi_column_pages > len(pdf.pages) // 2 else "single_column"
-            conf = 1.0
-            if layout_complexity == "multi_column":
-                conf *= 0.9
-            if total_blocks < 10 * len(pdf.pages):
-                conf *= 0.7
-            result = {
-                "pages": pages,
-                "layout_complexity": layout_complexity,
-                "total_blocks": total_blocks,
-                "multi_column_pages": multi_column_pages,
             }
             return result, conf
