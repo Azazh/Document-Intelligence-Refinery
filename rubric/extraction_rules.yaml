@@ -1,3 +1,12 @@
+# ============================================================================
+# Extraction Rules & Pipeline Configuration
+#
+# This file is the SINGLE source of truth for all pipeline thresholds, chunking
+# rules, escalation logic, and VLM budget. To onboard a new domain or tune
+# extraction behavior, edit ONLY this file—no code changes required.
+#
+# All agents and strategies load their config from here at runtime.
+# ============================================================================
 # Extraction rules for TriageAgent
 # Industry-standard, empirically validated thresholds for document profiling
 # These values are based on best practices from leading document intelligence companies (e.g., ABBYY, Kofax, Google Document AI, Amazon Textract)
