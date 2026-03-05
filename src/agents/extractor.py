@@ -30,47 +30,68 @@ class ExtractionRouter:
     def extract(self, pdf_path: str, profile: Dict[str, Any], doc_id: str = None) -> Dict[str, Any]:
         """
         Route extraction based on DocumentProfile and confidence.
-        Args:
-            pdf_path: Path to PDF
-            profile: DocumentProfile dict
-        Returns:
-            Extraction result dict (with strategy_used, confidence, etc.)
+        Uses centralized config for all thresholds and escalation rules.
+        Returns extraction result dict with escalation_occurred, low_confidence, and human_review_required flags.
         """
+        import time
         start_time = time.time()
+        rules = self.rules
+        meta = {"escalation_occurred": False, "low_confidence": False, "human_review_required": False}
         # Strategy A: FastTextExtractor
         if profile.get("origin_type") == "native_digital" and profile.get("layout_complexity") == "single_column":
             result, confidence = self.fast_text.extract(pdf_path)
-            if confidence >= 0.8:
+            if confidence >= rules["router"]["fast_text_confidence_min"]:
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "fast_text", confidence, 0.0, elapsed)
-                return {"strategy_used": "fast_text", "confidence": confidence, **result}
+                return {"strategy_used": "fast_text", "confidence": confidence, **meta, **result}
+            meta["escalation_occurred"] = True
+            meta["low_confidence"] = True
             # Escalate to layout extractor if low confidence
             layout_result, layout_conf = self.layout.extract(pdf_path)
-            if layout_conf >= 0.7:
+            if layout_conf >= rules["router"]["layout_confidence_min"]:
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "layout", layout_conf, 0.0, elapsed)
-                return {"strategy_used": "layout", "confidence": layout_conf, **layout_result}
+                return {"strategy_used": "layout", "confidence": layout_conf, **meta, **layout_result}
             # Escalate to vision extractor if still low confidence
+            meta["escalation_occurred"] = True
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
+            if vision_conf >= rules["router"]["vision_confidence_min"]:
+                elapsed = time.time() - start_time
+                self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
+                return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+            # If vision also low confidence, mark for human review
+            meta["human_review_required"] = True
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
-            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **vision_result}
+            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
         # Strategy B: LayoutExtractor for multi-column or table-heavy
         if profile.get("layout_complexity") in ["multi_column", "table_heavy", "mixed"] or profile.get("origin_type") == "mixed":
             result, confidence = self.layout.extract(pdf_path)
-            if confidence >= 0.7:
+            if confidence >= rules["router"]["layout_confidence_min"]:
                 elapsed = time.time() - start_time
                 self.ledger.log_entry(doc_id or pdf_path, "layout", confidence, 0.0, elapsed)
-                return {"strategy_used": "layout", "confidence": confidence, **result}
+                return {"strategy_used": "layout", "confidence": confidence, **meta, **result}
+            meta["escalation_occurred"] = True
+            meta["low_confidence"] = True
             # Escalate to vision extractor if low confidence
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
+            if vision_conf >= rules["router"]["vision_confidence_min"]:
+                elapsed = time.time() - start_time
+                self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
+                return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+            meta["human_review_required"] = True
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
-            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **vision_result}
+            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
         # Strategy C: VisionExtractor for scanned_image or final fallback
         if profile.get("origin_type") == "scanned_image":
             vision_result, vision_conf, vision_cost = self.vision.extract(pdf_path)
+            if vision_conf >= rules["router"]["vision_confidence_min"]:
+                elapsed = time.time() - start_time
+                self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
+                return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+            meta["human_review_required"] = True
             elapsed = time.time() - start_time
             self.ledger.log_entry(doc_id or pdf_path, "vision", vision_conf, vision_cost, elapsed)
-            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **vision_result}
-        return {"strategy_used": "escalation_needed", "confidence": 0.0, "error": "No suitable strategy implemented yet."}
+            return {"strategy_used": "vision", "confidence": vision_conf, "cost": vision_cost, **meta, **vision_result}
+        return {"strategy_used": "escalation_needed", "confidence": 0.0, **meta, "error": "No suitable strategy implemented yet."}

@@ -22,6 +22,19 @@ class BoundingBox(BaseModel):
     y1: float
     page: int
 
+    @validator('x1', 'y1')
+    def check_bbox_positive(cls, v, values, field):
+        if field.name == 'x1' and 'x0' in values and v < values['x0']:
+            raise ValueError('x1 must be >= x0')
+        if field.name == 'y1' and 'y0' in values and v < values['y0']:
+            raise ValueError('y1 must be >= y0')
+        return v
+    @validator('page')
+    def check_page_positive(cls, v):
+        if v < 1:
+            raise ValueError('page must be >= 1')
+        return v
+
 # --- ProvenanceChain ---
 class ProvenanceChain(BaseModel):
     document_name: str
@@ -40,6 +53,24 @@ class LDU(BaseModel):
     token_count: int
     content_hash: str
     metadata: Optional[Dict[str, Any]] = None
+
+    @validator('content')
+    def content_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('LDU content must be non-empty')
+        return v
+    @validator('page_refs')
+    def page_refs_not_empty(cls, v):
+        if not v:
+            raise ValueError('LDU must have at least one page_ref')
+        if any(page < 1 for page in v):
+            raise ValueError('All page_refs must be >= 1')
+        return v
+    @validator('token_count')
+    def token_count_positive(cls, v):
+        if v < 1:
+            raise ValueError('token_count must be positive')
+        return v
 
 # --- TableCell ---
 class TableCell(BaseModel):
@@ -78,6 +109,22 @@ class PageIndexSection(BaseModel):
     key_entities: List[str] = []
     summary: Optional[str] = None
     data_types_present: List[str] = []  # e.g., ['table', 'figure']
+
+    @validator('page_end')
+    def page_range_valid(cls, v, values):
+        if 'page_start' in values and v < values['page_start']:
+            raise ValueError('page_end must be >= page_start')
+        return v
+
+    @root_validator
+    def check_no_overlap(cls, values):
+        children = values.get('child_sections', [])
+        ranges = [(c.page_start, c.page_end) for c in children]
+        for i, (s1, e1) in enumerate(ranges):
+            for j, (s2, e2) in enumerate(ranges):
+                if i != j and not (e1 < s2 or e2 < s1):
+                    raise ValueError('Child sections must not overlap')
+        return values
 
     class Config:
         arbitrary_types_allowed = True

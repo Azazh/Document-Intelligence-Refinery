@@ -10,32 +10,23 @@ Usage:
     extractor = VisionExtractor(rules, budget_cap=2.0)  # $2.00 max per doc
     result, confidence, cost = extractor.extract(pdf_path)
 """
+
 from typing import Dict, Any, Tuple
 import os
+from src.strategies.base_extractor import BaseExtractor
+from uuid import uuid4
 
-class VisionExtractor:
-    def __init__(self, rules: Dict[str, Any], budget_cap: float = 2.0):
-        """
-        Initialize VisionExtractor with extraction rules and budget cap.
-        Args:
-            rules: Dictionary of extraction thresholds (from extraction_rules.yaml)
-            budget_cap: Maximum allowed cost per document (USD)
-        """
-        self.rules = rules
-        self.budget_cap = budget_cap
+class VisionExtractor(BaseExtractor):
+    def __init__(self, rules: Dict[str, Any]):
+        super().__init__(rules)
+        self.budget_cap = self.rules.get("vlm", {}).get("budget_cap_usd", 2.0)
         self.cost_so_far = 0.0
 
     def extract(self, pdf_path: str) -> Tuple[Dict[str, Any], float, float]:
         """
         Extracts content from a PDF using a vision model (mocked for demo).
         Tracks cost and enforces budget cap.
-        Args:
-            pdf_path: Path to the PDF file
-        Returns:
-            (result, confidence, cost):
-                result: Dict with extracted content and metadata
-                confidence: float (0-1) confidence score
-                cost: float, total cost incurred (USD)
+        All parameters are config-driven. Output is normalized to ExtractedDocument/LDU schema.
         """
         if not os.path.exists(pdf_path):
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -46,11 +37,27 @@ class VisionExtractor:
         total_cost = num_pages * cost_per_page
         if total_cost > self.budget_cap:
             return {"error": "Budget cap exceeded"}, 0.0, total_cost
-        # Mocked extraction result
+        ldu_list = []
+        for i in range(num_pages):
+            ldu_list.append({
+                "ldu_id": str(uuid4()),
+                "content": "Extracted by vision model",
+                "chunk_type": "text",
+                "page_refs": [i+1],
+                "bounding_box": None,
+                "parent_section": None,
+                "token_count": 5,
+                "content_hash": str(hash(f"Extracted by vision model {i+1}")),
+                "metadata": {"source": "vision"}
+            })
         result = {
-            "pages": [
-                {"text": "Extracted by vision model", "page": i+1, "confidence": 0.95} for i in range(num_pages)
-            ],
+            "extracted_document": {
+                "doc_id": str(uuid4()),
+                "text_blocks": ldu_list,
+                "tables": [],
+                "figures": [],
+                "reading_order": [ldu["ldu_id"] for ldu in ldu_list]
+            },
             "strategy": "vision",
         }
         confidence = 0.95
