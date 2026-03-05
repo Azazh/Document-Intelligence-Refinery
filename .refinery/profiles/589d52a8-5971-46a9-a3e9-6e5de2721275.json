@@ -1,0 +1,13 @@
+{
+  "doc_id": "589d52a8-5971-46a9-a3e9-6e5de2721275",
+  "origin_type": "mixed",
+  "layout_complexity": "multi_column",
+  "language": "en",
+  "domain_hint": "financial",
+  "extraction_metrics": {
+    "character_density": 0.004058235690777106,
+    "whitespace_ratio": 0.788523532404566,
+    "image_to_page_ratio": 0.06487462095139168
+  },
+  "estimated_cost_tier": "medium"
+}
