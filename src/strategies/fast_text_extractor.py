@@ -84,4 +84,5 @@ class FastTextExtractor:
                 "total_chars": total_chars,
                 "total_images": total_images,
             }
+            
             return result, conf

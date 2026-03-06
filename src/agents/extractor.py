@@ -13,6 +13,8 @@ from src.strategies.fast_text_extractor import FastTextExtractor
 from src.strategies.layout_extractor import LayoutExtractor
 from src.strategies.vision_extractor import VisionExtractor
 from src.agents.extraction_ledger import ExtractionLedger
+import time
+
 
 class ExtractionRouter:
     def __init__(self, rules: Dict[str, Any], ledger_path: str = ".refinery/extraction_ledger.jsonl"):
@@ -33,7 +35,6 @@ class ExtractionRouter:
         Uses centralized config for all thresholds and escalation rules.
         Returns extraction result dict with escalation_occurred, low_confidence, and human_review_required flags.
         """
-        import time
         start_time = time.time()
         rules = self.rules
         router_cfg = rules.get("router", {})

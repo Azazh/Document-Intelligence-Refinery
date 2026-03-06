@@ -41,35 +41,37 @@ text_coverage_min: 0.10             # If < 0.10, likely scanned or image-heavy (
 # Add more rules as needed for extensibility
 
 # --- Escalation and Confidence Thresholds ---
+
 router:
-	fast_text_confidence_min: 0.8         # Escalate if FastText confidence < 0.8
-	layout_confidence_min: 0.7            # Escalate if Layout confidence < 0.7
-	vision_confidence_min: 0.6            # Mark for human review if Vision confidence < 0.6
-	escalation_enabled: true              # Enable multi-level escalation
-	escalate_on_low_confidence: true      # Escalate if any strategy is below threshold
-	mark_human_review_on_final_low: true  # Mark for human review if all strategies fail
+  fast_text_confidence_min: 0.8         # Escalate if FastText confidence < 0.8
+  layout_confidence_min: 0.7            # Escalate if Layout confidence < 0.7
+  vision_confidence_min: 0.6            # Mark for human review if Vision confidence < 0.6
+  escalation_enabled: true              # Enable multi-level escalation
+  escalate_on_low_confidence: true      # Escalate if any strategy is below threshold
+  mark_human_review_on_final_low: true  # Mark for human review if all strategies fail
 
 # --- Chunking Rules ---
 chunking:
-	max_tokens: 512                       # Max tokens per LDU
-	overlap: 32                           # Overlap between chunks (for context)
-	enforce_table_cell_integrity: true    # Never split table cell from header
-	enforce_figure_caption_integrity: true
-	enforce_numbered_list_integrity: true
+  max_tokens: 512                       # Max tokens per LDU
+  overlap: 32                           # Overlap between chunks (for context)
+  enforce_table_cell_integrity: true    # Never split table cell from header
+  enforce_figure_caption_integrity: true
+  enforce_numbered_list_integrity: true
+
 
 # --- VLM (Vision Language Model) Budget ---
 vlm:
-	budget_cap_usd: 2.00                  # Max budget per document (USD)
-	model: gpt-4o-mini                    # Default VLM model
-	provider: openrouter                  # VLM provider
+  budget_cap_usd: 2.00                  # Max budget per document (USD)
+  model: gpt-4o-mini                    # Default VLM model
+  provider: openrouter                  # VLM provider
 
 # --- Confidence Scoring Weights ---
 confidence_weights:
-	char_density: 0.3
-	image_ratio: 0.2
-	font_metadata: 0.2
-	text_coverage: 0.2
-	ocr_confidence: 0.1
+char_density: 0.3
+image_ratio: 0.2
+font_metadata: 0.2
+text_coverage: 0.2
+ocr_confidence: 0.1
 
 # --- Notes ---
 # All config parameters above are loaded centrally and passed to all agents/strategies.

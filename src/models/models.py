@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any, Literal, Union
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # --- DocumentProfile (already present, shown for completeness) ---
 class DocumentProfile(BaseModel):
@@ -28,15 +28,24 @@ class BoundingBox(BaseModel):
     y1: float
     page: int
 
-    @validator('x1', 'y1')
-    def check_bbox_positive(cls, v, values, field):
-        if field.name == 'x1' and 'x0' in values and v < values['x0']:
+    @field_validator('x1')
+    @classmethod
+    def check_x1_positive(cls, v, info):
+        x0 = info.data.get('x0')
+        if x0 is not None and v < x0:
             raise ValueError('x1 must be >= x0')
-        if field.name == 'y1' and 'y0' in values and v < values['y0']:
+        return v
+
+    @field_validator('y1')
+    @classmethod
+    def check_y1_positive(cls, v, info):
+        y0 = info.data.get('y0')
+        if y0 is not None and v < y0:
             raise ValueError('y1 must be >= y0')
         return v
 
-    @validator('page')
+    @field_validator('page')
+    @classmethod
     def check_page_positive(cls, v):
         if v < 1:
             raise ValueError('page must be >= 1')
@@ -68,13 +77,15 @@ class LDU(BaseModel):
     content_hash: str
     metadata: Optional[Dict[str, Any]] = None
 
-    @validator('content')
+    @field_validator('content')
+    @classmethod
     def content_not_empty(cls, v):
         if not v or not v.strip():
             raise ValueError('LDU content must be non-empty')
         return v
 
-    @validator('page_refs')
+    @field_validator('page_refs')
+    @classmethod
     def page_refs_not_empty(cls, v):
         if not v:
             raise ValueError('LDU must have at least one page_ref')
@@ -82,7 +93,8 @@ class LDU(BaseModel):
             raise ValueError('All page_refs must be >= 1')
         return v
 
-    @validator('token_count')
+    @field_validator('token_count')
+    @classmethod
     def token_count_positive(cls, v):
         if v < 1:
             raise ValueError('token_count must be positive')
@@ -146,21 +158,23 @@ class PageIndexSection(BaseModel):
     summary: Optional[str] = None
     data_types_present: List[str] = []  # e.g., ['table', 'figure']
 
-    @validator('page_end')
-    def page_range_valid(cls, v, values):
-        if 'page_start' in values and v < values['page_start']:
+    @field_validator('page_end')
+    @classmethod
+    def page_range_valid(cls, v, info):
+        page_start = info.data.get('page_start')
+        if page_start is not None and v < page_start:
             raise ValueError('page_end must be >= page_start')
         return v
 
-    @root_validator
-    def check_no_overlap(cls, values):
-        children = values.get('child_sections', [])
+    @model_validator(mode="after")
+    def check_no_overlap(self):
+        children = self.child_sections or []
         ranges = [(c.page_start, c.page_end) for c in children]
         for i, (s1, e1) in enumerate(ranges):
             for j, (s2, e2) in enumerate(ranges):
                 if i != j and not (e1 < s2 or e2 < s1):
                     raise ValueError('Child sections must not overlap')
-        return values
+        return self
 
     class Config:
         arbitrary_types_allowed = True

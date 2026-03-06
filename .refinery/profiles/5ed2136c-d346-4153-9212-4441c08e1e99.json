@@ -1,0 +1,14 @@
+{
+  "doc_id": "5ed2136c-d346-4153-9212-4441c08e1e99",
+  "origin_type": "mixed",
+  "layout_complexity": "multi_column",
+  "language": "en",
+  "domain_hint": "financial",
+  "extraction_metrics": {
+    "character_density": 0.0023672179309434213,
+    "whitespace_ratio": 0.8391756828240877,
+    "image_to_page_ratio": 0.09518485359003359
+  },
+  "estimated_cost_tier": "medium",
+  "original_pdf": "digital_CBE Annual Report 2012-13.pdf"
+}
