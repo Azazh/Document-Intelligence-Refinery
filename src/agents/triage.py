@@ -172,7 +172,7 @@ class TriageAgent:
                     self.ambiguous_logger.info(
                         f"Ambiguous classification for {pdf_path}: origin={origin_type}, char_density={char_density:.3f}, image_ratio={image_to_page_ratio:.3f}, domain={domain_hint} (score={domain_score}), layout={layout_complexity}"
                     )
-                self._save_profile(profile)
+                self._save_profile(profile, pdf_path)
                 return profile
         except (ValidationError, Exception) as e:
             print(f"Error analyzing {pdf_path}: {e}")
@@ -280,7 +280,7 @@ class TriageAgent:
                         best_domain = domain
         return best_domain, best_score
 
-    def _save_profile(self, profile: DocumentProfile):
+    def _save_profile(self, profile: DocumentProfile, pdf_path: str = None):
         """
         Saves DocumentProfile as a JSON file in the profiles directory.
         Approach: Serializes profile and writes to disk for traceability and review.
@@ -293,6 +293,9 @@ class TriageAgent:
         data = profile.dict()
         if isinstance(data.get("doc_id"), uuid.UUID):
             data["doc_id"] = str(data["doc_id"])
+        # Add original PDF filename for downstream extraction
+        if pdf_path is not None:
+            data["original_pdf"] = os.path.basename(pdf_path)
         try:
             with open(out_path, "w") as f:
                 json.dump(data, f, indent=2)

@@ -1,0 +1,14 @@
+{
+  "doc_id": "bb686ab6-6bc4-4419-9360-454ec7d5644d",
+  "origin_type": "mixed",
+  "layout_complexity": "multi_column",
+  "language": "en",
+  "domain_hint": "financial",
+  "extraction_metrics": {
+    "character_density": 0.004058235690777106,
+    "whitespace_ratio": 0.788523532404566,
+    "image_to_page_ratio": 0.06487462095139168
+  },
+  "estimated_cost_tier": "medium",
+  "original_pdf": "mixed_CBE Annual Report 2017-18.pdf"
+}

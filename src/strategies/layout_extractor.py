@@ -1,3 +1,4 @@
+from src.models.models import TableBlock, TableCell, BoundingBox
 """
 LayoutExtractor: Production-grade layout-aware extraction for complex PDFs.
 
@@ -19,6 +20,53 @@ from src.strategies.base_extractor import BaseExtractor
 from uuid import uuid4
 
 class LayoutExtractor(BaseExtractor):
+    def _normalize_bbox(self, bbox, page_num):
+        if isinstance(bbox, dict):
+            return {
+                'x0': bbox.get('x0', 0),
+                'y0': bbox.get('y0', 0),
+                'x1': bbox.get('x1', 0),
+                'y1': bbox.get('y1', 0),
+                'page': bbox.get('page', page_num)
+            }
+        elif isinstance(bbox, list) and len(bbox) == 4:
+            return {
+                'x0': bbox[0],
+                'y0': bbox[1],
+                'x1': bbox[2],
+                'y1': bbox[3],
+                'page': page_num
+            }
+        else:
+            return {'x0': 0, 'y0': 0, 'x1': 0, 'y1': 0, 'page': page_num}
+
+    def _normalize_table(self, table_dict, page_num):
+        bbox = self._normalize_bbox(table_dict.get('bbox', [0, 0, 0, 0]), page_num)
+        # Ensure all headers are strings and not None
+        headers = [str(h) if h is not None else "" for h in table_dict.get('headers', [])]
+        norm_rows = []
+        for r_idx, row in enumerate(table_dict.get('rows', [])):
+            norm_row = []
+            for c_idx, cell in enumerate(row):
+                if isinstance(cell, dict):
+                    text = cell.get('text', str(cell))
+                    cell_bbox = self._normalize_bbox(cell.get('bbox', bbox), page_num)
+                else:
+                    text = str(cell)
+                    cell_bbox = bbox
+                norm_row.append({
+                    'text': text,
+                    'bbox': cell_bbox,
+                    'row': r_idx,
+                    'col': c_idx
+                })
+            norm_rows.append(norm_row)
+        return {
+            'headers': headers,
+            'rows': norm_rows,
+            'bbox': bbox
+        }
+
     def extract(self, pdf_path: str) -> Tuple[Dict[str, Any], float]:
         """
         Multi-signal confidence scoring:
@@ -61,7 +109,7 @@ class LayoutExtractor(BaseExtractor):
                         "content": block["text"],
                         "chunk_type": "text",
                         "page_refs": [i+1],
-                        "bounding_box": block["bbox"],
+                        "bounding_box": self._normalize_bbox(block["bbox"], i+1),
                         "parent_section": None,
                         "token_count": len(block["text"].split()),
                         "content_hash": str(hash(block["text"])),
@@ -70,22 +118,27 @@ class LayoutExtractor(BaseExtractor):
                 # Extract tables (preserve structure)
                 tables = page.extract_tables() or []
                 for t in tables:
-                    table_list.append({
+                    table_dict = {
                         "headers": t[0] if t else [],
                         "rows": t[1:] if len(t) > 1 else [],
-                        "bbox": [0, 0, page.width, page.height],
-                        "page": i+1
-                    })
+                        "bbox": [0, 0, page.width, page.height]
+                    }
+                    norm_table = self._normalize_table(table_dict, page_num=i+1)
+                    table_list.append(norm_table)
                 # Extract figures (preserve structure)
                 figures = page.images or []
                 for f in figures:
                     figure_list.append({
                         "caption": f.get("caption", ""),
-                        "bbox": [f.get("x0", 0), f.get("top", 0), f.get("x1", 0), f.get("bottom", 0)],
+                        "bbox": self._normalize_bbox([f.get("x0", 0), f.get("top", 0), f.get("x1", 0), f.get("bottom", 0)], i+1),
                         "page": i+1
                     })
             # Multi-signal confidence scoring
-            weights = self.rules.get("confidence_weights", {})
+            # Defensive: ensure self.rules is a dict and weights is always a dict
+            rules = self.rules if isinstance(self.rules, dict) else {}
+            weights = rules.get("confidence_weights")
+            if not isinstance(weights, dict):
+                weights = {}
             conf = 1.0
             if multi_column_pages > 0:
                 conf *= 1 - weights.get("char_density", 0.3)  # Penalize if multi-column detected

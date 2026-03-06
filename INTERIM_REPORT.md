@@ -25,14 +25,14 @@ An escalation guard monitors extraction confidence after each stage; if confiden
 - **Routing:**
 ## 1.2 Failure Modes Observed (All Four Document Classes)
 
-| Failure Mode         | Description                                                                 | Example (Named Corpus Doc) | Technical Cause / Observable Criteria |
-|---------------------|-----------------------------------------------------------------------------|---------------------------|--------------------------------------|
-| Structure collapse  | Tables/columns flattened, relationships lost                                | CBE ANNUAL REPORT 2023-24.pdf (Class A), tax_expenditure_ethiopia_2021_22.pdf (Class D) | FastTextExtractor on multi-column/table-heavy; low char density in table regions |
-| Context poverty     | Related elements (e.g., table + caption) split into separate chunks          | fta_performance_survey_final_report_2022.pdf (Class C), tax_expenditure_ethiopia_2021_22.pdf (Class D) | Naive chunking, lack of LDU rules, missing parent/child linkage |
-| Provenance blindness| Extracted data lacks page, bbox, or content_hash for audit                   | Audit Report - 2023.pdf (Class B), fta_performance_survey_final_report_2022.pdf (Class C) | Extractor omits spatial metadata; scanned images without OCR bbox |
-| Escalation triggers | FastTextExtractor returns low-confidence/garbage on scanned or complex docs  | Audit Report - 2023.pdf (Class B) | Triage detects low char density, high image area, triggers escalation |
-| Table OCR errors    | OCR misreads numbers, headers, or merges cells                               | Audit Report - 2023.pdf (Class B), tax_expenditure_ethiopia_2021_22.pdf (Class D) | VisionExtractor: VLM/OCR model errors, low image quality |
-| Section misclassification | Headings missed, sections merged or split incorrectly                  | fta_performance_survey_final_report_2022.pdf (Class C) | LayoutExtractor: heading detection threshold too high/low |
+| Failure Mode         | Description                                                                 | Example (Named Corpus Doc) | Tool (Phase 0)      | Technical Cause / Observable Criteria |
+|---------------------|-----------------------------------------------------------------------------|---------------------------|---------------------|--------------------------------------|
+| Structure collapse  | Tables/columns flattened, relationships lost                                | mixed_CBE Annual Report 2017-18.pdf | pdfplumber         | FastTextExtractor on multi-column/table-heavy; low char density in table regions |
+| Context poverty     | Related elements (e.g., table + caption) split into separate chunks          | digital_CBE Annual Report 2012-13.pdf | pdfplumber         | Naive chunking, lack of LDU rules, missing parent/child linkage |
+| Provenance blindness| Extracted data lacks page, bbox, or content_hash for audit                   | scanned_2013-E.C-Audit-finding-information.pdf | pdfplumber/Docling | Extractor omits spatial metadata; scanned images without OCR bbox |
+| Escalation triggers | FastTextExtractor returns low-confidence/garbage on scanned or complex docs  | scanned_2013-E.C-Audit-finding-information.pdf | pdfplumber         | Triage detects low char density, high image area, triggers escalation |
+| Table OCR errors    | OCR misreads numbers, headers, or merges cells                               | scanned_2013-E.C-Audit-finding-information.pdf | Docling            | VisionExtractor: VLM/OCR model errors, low image quality |
+| Section misclassification | Headings missed, sections merged or split incorrectly                  | mixed_CBE Annual Report 2017-18.pdf | pdfplumber         | LayoutExtractor: heading detection threshold too high/low |
 
 **Observable Criteria for Document Type Detection:**
 - Digital: High char density, font metadata, low image area, extractable text.
