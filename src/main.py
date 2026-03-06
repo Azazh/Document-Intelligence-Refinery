@@ -83,9 +83,47 @@ def main():
             # --- Semantic Chunking ---
             from src.models.models import ExtractedDocument
             extracted_doc = None
+            def normalize_bbox(bbox):
+                if isinstance(bbox, dict):
+                    return bbox
+                elif isinstance(bbox, list) and len(bbox) == 4:
+                    return {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3], "page": 1}
+                else:
+                    return {"x0": 0, "y0": 0, "x1": 0, "y1": 0, "page": 1}
+
+            def normalize_blocks(blocks):
+                for block in blocks:
+                    if "bounding_box" in block:
+                        block["bounding_box"] = normalize_bbox(block["bounding_box"])
+                return blocks
+
+            def normalize_tables(tables):
+                for table in tables:
+                    if "bbox" in table:
+                        table["bbox"] = normalize_bbox(table["bbox"])
+                    if "rows" in table:
+                        for row in table["rows"]:
+                            for cell in row:
+                                if "bbox" in cell:
+                                    cell["bbox"] = normalize_bbox(cell["bbox"])
+                return tables
+
+            def normalize_figures(figures):
+                for fig in figures:
+                    if "bbox" in fig:
+                        fig["bbox"] = normalize_bbox(fig["bbox"])
+                return figures
+
             if isinstance(result, dict) and "extracted_document" in result:
+                doc = result["extracted_document"]
+                if "text_blocks" in doc:
+                    doc["text_blocks"] = normalize_blocks(doc["text_blocks"])
+                if "tables" in doc:
+                    doc["tables"] = normalize_tables(doc["tables"])
+                if "figures" in doc:
+                    doc["figures"] = normalize_figures(doc["figures"])
                 try:
-                    extracted_doc = ExtractedDocument(**result["extracted_document"])
+                    extracted_doc = ExtractedDocument(**doc)
                 except Exception as e:
                     print(f"[ERROR] Could not parse ExtractedDocument for {pdf_path}: {e}")
                     traceback.print_exc()
