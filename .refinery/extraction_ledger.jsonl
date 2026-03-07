@@ -1,1 +1,6 @@
-{"timestamp": "2026-03-07T01:07:22Z", "doc_id": "bb3759d9-9542-452a-857e-6eba46d81432", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 2.017392635345459}
+{"timestamp": "2026-03-07T01:54:07Z", "doc_id": "bb3759d9-9542-452a-857e-6eba46d81432", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 2.6246016025543213}
+{"timestamp": "2026-03-07T02:02:39Z", "doc_id": "5a87acd7-5241-44e8-bba8-168f78189dd9", "strategy_used": "vision", "confidence_score": 0.95, "cost_estimate": 1.0, "processing_time": 0.0021708011627197266}
+{"timestamp": "2026-03-07T02:02:49Z", "doc_id": "e36d8d4f-f5a3-48f5-bf07-1c5214f6c444", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 4.985302448272705}
+{"timestamp": "2026-03-07T02:11:32Z", "doc_id": "be8f5d7a-fea8-4053-826f-0e51827a074f", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 2.6744463443756104}
+{"timestamp": "2026-03-07T02:17:55Z", "doc_id": "631bf3c1-aa0b-4ba6-b435-9db40e0a85a0", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 20.195242166519165}
+{"timestamp": "2026-03-07T02:38:54Z", "doc_id": "c6d4968d-b389-4ab4-98d8-44381172a8b2", "strategy_used": "layout", "confidence_score": 0.7, "cost_estimate": 0.0, "processing_time": 22.420271635055542}

@@ -67,3 +67,7 @@
 2026-03-07 02:51:31,158 INFO Ambiguous classification for ./sample/digital_CBE Annual Report 2012-13.pdf: origin=mixed, char_density=0.002, image_ratio=0.095, domain=financial (score=100), layout=multi_column
 2026-03-07 04:07:12,990 INFO Ambiguous classification for ./sample/mixed_CBE Annual Report 2017-18.pdf: origin=mixed, char_density=0.004, image_ratio=0.065, domain=financial (score=100), layout=multi_column
 2026-03-07 04:07:16,468 INFO Ambiguous classification for ./sample/digital_CBE Annual Report 2012-13.pdf: origin=mixed, char_density=0.002, image_ratio=0.095, domain=financial (score=100), layout=multi_column
+2026-03-07 04:50:15,583 INFO Ambiguous classification for ./sample/mixed_CBE Annual Report 2017-18.pdf: origin=mixed, char_density=0.004, image_ratio=0.065, domain=financial (score=100), layout=multi_column
+2026-03-07 04:50:20,903 INFO Ambiguous classification for ./sample/digital_CBE Annual Report 2012-13.pdf: origin=mixed, char_density=0.002, image_ratio=0.095, domain=financial (score=100), layout=multi_column
+2026-03-07 04:53:55,186 INFO Ambiguous classification for ./sample/mixed_CBE Annual Report 2017-18.pdf: origin=mixed, char_density=0.004, image_ratio=0.065, domain=financial (score=100), layout=multi_column
+2026-03-07 04:53:59,538 INFO Ambiguous classification for ./sample/digital_CBE Annual Report 2012-13.pdf: origin=mixed, char_density=0.002, image_ratio=0.095, domain=financial (score=100), layout=multi_column

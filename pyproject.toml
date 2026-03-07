@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "chromadb>=1.5.2",
     "docling>=2.76.0",
     "google-genai>=1.66.0",
     "numpy>=2.4.2",
@@ -15,4 +16,5 @@ dependencies = [
     "pytest>=9.0.2",
     "rapidfuzz>=3.14.3",
     "scikit-learn>=1.8.0",
+    "sentence-transformers>=5.2.3",
 ]
