@@ -148,6 +148,14 @@ def main():
                     with open(pageindex_out_path, "w") as f:
                         json.dump(page_index.model_dump(), f, indent=2)
                     print(f"[DEBUG] Wrote PageIndex to {pageindex_out_path}")
+
+                    # --- Hybrid PageIndex Query Integration ---
+                    # Example: run a sample query to get top-3 relevant sections before vector search
+                    sample_query = "capital expenditure projections for Q3"
+                    top_sections = indexer.query_pageindex(page_index, sample_query, top_k=3)
+                    print(f"[HYBRID SEARCH] Top-3 relevant sections for query '{sample_query}':")
+                    for i, sec in enumerate(top_sections, 1):
+                        print(f"  {i}. {sec.title} (pages {sec.page_start}-{sec.page_end})\n     Summary: {sec.summary}")
                 except Exception as e:
                     print(f"[ERROR] Exception during PageIndex building for {pdf_path}: {e}")
                     traceback.print_exc()
