@@ -1,8 +1,10 @@
+
 import psycopg2
 from psycopg2.extras import execute_values
 from typing import List
 from src.models.models import LDU
 import re
+import json
 
 class FactTableExtractor:
     """
@@ -41,13 +43,14 @@ class FactTableExtractor:
                 for key, value in matches:
                     year = self._extract_year(ldu.content)
                     bbox = ldu.bounding_box.model_dump() if ldu.bounding_box else None
+                    bbox_json = json.dumps(bbox) if bbox is not None else None
                     fact_rows.append((
                         document_name,
                         ldu.page_refs[0] if ldu.page_refs else None,
                         key.strip(),
                         value.strip(),
                         year,
-                        bbox,
+                        bbox_json,
                         ldu.content_hash
                     ))
             # Optionally, add more sophisticated extraction for tables

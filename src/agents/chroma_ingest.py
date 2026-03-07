@@ -84,7 +84,9 @@ def insert_ldus_into_chromadb(ldus: list, collection_name: str = "ldu_collection
             return val
         return str(val)
 
-    client = chromadb.Client()
+    # Use persistent storage so data is visible across runs/scripts
+    persist_path = "chroma_store"  # You can change this path if needed
+    client = chromadb.PersistentClient(path=persist_path)
     collection = client.get_or_create_collection(collection_name)
 
     # Deduplicate LDUs
@@ -101,15 +103,18 @@ def insert_ldus_into_chromadb(ldus: list, collection_name: str = "ldu_collection
         batch = unique_ldus[i:i+batch_size]
         metadatas = []
         for ldu in batch:
+            # Store all LDU fields required for PageIndexing and provenance
             meta = {
+                "ldu_id": sanitize_metadata_value(ldu.get("ldu_id")),
+                "content": sanitize_metadata_value(ldu.get("content")),
                 "chunk_type": sanitize_metadata_value(ldu.get("chunk_type")),
                 "page_refs": sanitize_metadata_value(ldu.get("page_refs")),
                 "bounding_box": sanitize_metadata_value(ldu.get("bounding_box")),
                 "parent_section": sanitize_metadata_value(ldu.get("parent_section")),
                 "token_count": sanitize_metadata_value(ldu.get("token_count")),
                 "content_hash": sanitize_metadata_value(ldu.get("content_hash")),
-                "ldu_id": sanitize_metadata_value(ldu.get("ldu_id")),
                 "metadata": sanitize_metadata_value(ldu.get("metadata", {})),
+                "document_name": sanitize_metadata_value(ldu.get("document_name")),
             }
             metadatas.append(meta)
 

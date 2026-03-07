@@ -134,6 +134,10 @@ def main():
                 try:
                     ldu_list = chunker.chunk(extracted_doc)
                     print(f"[INFO] Chunked {len(ldu_list)} LDUs for {pdf_path}")
+                    # Set document_name for every LDU (for export and downstream use)
+                    doc_name = os.path.basename(pdf_path)
+                    for ldu in ldu_list:
+                        ldu.document_name = doc_name
                     # Save LDUs to .refinery/ldus_<doc_id>.json
                     ldu_out_path = f".refinery/ldus_{doc_id}.json"
                     with open(ldu_out_path, "w") as f:
@@ -141,17 +145,39 @@ def main():
                     print(f"[DEBUG] Wrote LDUs to {ldu_out_path}")
                     # --- FactTable Extraction ---
                     try:
-                        fact_extractor.extract_facts(ldu_list, os.path.basename(pdf_path))
+                        fact_extractor.extract_facts(ldu_list, doc_name)
                         print(f"[INFO] Extracted and stored facts for {pdf_path}")
                     except Exception as e:
                         print(f"[ERROR] FactTable extraction failed for {pdf_path}: {e}")
                         traceback.print_exc()
+                    # --- ChromaDB Ingestion ---
+                    try:
+                        from src.agents.chroma_ingest import insert_ldus_into_chromadb, generate_ldu_embeddings
+                        # Generate embeddings for LDUs (if not already present)
+                        ldu_dicts = [ldu.model_dump() for ldu in ldu_list]
+                        ldu_dicts = generate_ldu_embeddings(ldu_dicts)
+                        insert_ldus_into_chromadb(ldu_dicts)
+                        print(f"[INFO] Ingested {len(ldu_dicts)} LDUs into ChromaDB for {pdf_path}")
+                    except Exception as e:
+                        print(f"[ERROR] ChromaDB ingestion failed for {pdf_path}: {e}")
+                        traceback.print_exc()
                 except Exception as e:
                     print(f"[ERROR] Exception during chunking for {pdf_path}: {e}")
                     traceback.print_exc()
-                # --- PageIndex Building ---
+                # --- PageIndex Building (from ChromaDB) ---
                 try:
-                    page_index = indexer.build(ldu_list)
+                    from src.agents.chroma_ingest import load_all_ldus
+                    # Filter LDUs for this document by doc_id or content_hash prefix if available
+                    all_ldus = load_all_ldus()
+                    # Try to filter by doc_id in metadata or parent_section
+                    filtered_ldus = [ldu for ldu in all_ldus if str(ldu.get('parent_section', '')) == doc_id or str(ldu.get('metadata',{}).get('doc_id','')) == doc_id or str(ldu.get('ldu_id','')).startswith(doc_id)]
+                    if not filtered_ldus:
+                        # fallback: try all_ldus
+                        filtered_ldus = all_ldus
+                    # Reconstruct LDU objects if needed
+                    from src.models.models import LDU
+                    ldu_objs = [LDU(**ldu) if not isinstance(ldu, LDU) else ldu for ldu in filtered_ldus]
+                    page_index = indexer.build(ldu_objs)
                     print(f"[INFO] Built PageIndex for {pdf_path} with {len(page_index.child_sections)} sections.")
                     # Save PageIndex to .refinery/pageindex_<doc_id>.json
                     pageindex_out_path = f".refinery/pageindex_{doc_id}.json"
