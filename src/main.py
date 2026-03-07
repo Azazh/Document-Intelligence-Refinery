@@ -6,7 +6,9 @@ import traceback
 from src.agents.triage import TriageAgent
 from src.agents.extractor import ExtractionRouter
 from src.agents.chunker import ChunkingEngine
+
 from src.agents.indexer import PageIndexBuilder
+from src.agents.facttable_extractor import FactTableExtractor
 
 def main():
     sample_dir = "./sample"
@@ -61,6 +63,7 @@ def main():
 
     chunker = ChunkingEngine()
     indexer = PageIndexBuilder()
+    fact_extractor = FactTableExtractor()
     for profile_file in profile_files:
         try:
             profile_path = os.path.join(profiles_dir, profile_file)
@@ -136,6 +139,13 @@ def main():
                     with open(ldu_out_path, "w") as f:
                         json.dump([ldu.model_dump() for ldu in ldu_list], f, indent=2)
                     print(f"[DEBUG] Wrote LDUs to {ldu_out_path}")
+                    # --- FactTable Extraction ---
+                    try:
+                        fact_extractor.extract_facts(ldu_list, os.path.basename(pdf_path))
+                        print(f"[INFO] Extracted and stored facts for {pdf_path}")
+                    except Exception as e:
+                        print(f"[ERROR] FactTable extraction failed for {pdf_path}: {e}")
+                        traceback.print_exc()
                 except Exception as e:
                     print(f"[ERROR] Exception during chunking for {pdf_path}: {e}")
                     traceback.print_exc()
