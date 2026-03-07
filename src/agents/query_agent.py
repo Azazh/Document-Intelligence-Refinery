@@ -33,38 +33,100 @@ class ProvenanceChainEntry:
         }
 
 class QueryAgent:
-    def _log_query(self, query_type: str, query: str, answer: str, provenance_chain: list, extra: dict = None):
-        import os, json, datetime
-        log_dir = ".refinery"
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, "query_ledger.jsonl")
-        entry = {
-            "timestamp": datetime.datetime.utcnow().isoformat(),
-            "query_type": query_type,
-            "query": query,
-            "answer": answer,
-            "provenance_chain": provenance_chain,
-        }
-        if extra:
-            entry.update(extra)
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-    def __init__(self, chroma_collection="ldu_collection", facttable_path="facttable.db"):
-        # Use persistent client to match ingestion/inspection
-        self.chroma_client = chromadb.PersistentClient(path="chroma_store")
-        self.collection = self.chroma_client.get_or_create_collection(chroma_collection)
-        self.facttable_path = facttable_path
 
-    def pageindex_navigate(self, doc_id: str, topic: str) -> List[Dict[str, Any]]:
-        """
-        Traverse the PageIndex tree for the given document and return sections relevant to the topic.
-        Uses simple keyword matching in section titles and summaries.
-        """
-        import os
-        pageindex_path = f".refinery/pageindex_{doc_id}.json"
-        if not os.path.exists(pageindex_path):
-            print(f"PageIndex file not found: {pageindex_path}")
-            return []
+        def orchestrate_query(self, query: str, doc_id: str = None) -> Dict[str, Any]:
+            """
+            Orchestrate query handling: inspect the query, choose the best tool(s), and aggregate results.
+            Returns a unified answer with a combined ProvenanceChain.
+            """
+            import re
+            # 1. Check for SQL-like queries (structured_query)
+            sql_keywords = ["select ", "from ", "where ", "group by", "order by", "limit "]
+            if any(kw in query.lower() for kw in sql_keywords):
+                results = self.structured_query(query)
+                provenance_chain = []
+                for row in results:
+                    provenance_chain.append({
+                        "document_name": row.get("document_name"),
+                        "page_number": row.get("page_number"),
+                        "bbox": row.get("bbox"),
+                        "content_hash": row.get("content_hash")
+                    })
+                return {
+                    "answer": results,
+                    "provenance_chain": provenance_chain,
+                    "tool_used": "structured_query"
+                }
+
+            # 2. If doc_id and topic/section keywords, try pageindex_navigate
+            if doc_id and re.search(r"section|pageindex|toc|table of contents|chapter|part|topic", query, re.IGNORECASE):
+                matches = self.pageindex_navigate(doc_id, query)
+                provenance_chain = []
+                for section in matches:
+                    provenance_chain.append({
+                        "document_name": section.get("document_name"),
+                        "page_number": section.get("page_start"),
+                        "bbox": None,
+                            def orchestrate_query(self, query: str, doc_id: str = None) -> Dict[str, Any]:
+                                """
+                                Orchestrate query handling: inspect the query, choose the best tool(s), and aggregate results.
+                                Returns a unified answer with a combined ProvenanceChain.
+                                """
+                                import re
+                                # 1. Check for SQL-like queries (structured_query)
+                                sql_keywords = ["select ", "from ", "where ", "group by", "order by", "limit "]
+                                if any(kw in query.lower() for kw in sql_keywords):
+                                    results = self.structured_query(query)
+                                    provenance_chain = []
+                                    for row in results:
+                                        provenance_chain.append({
+                                            "document_name": row.get("document_name"),
+                                            "page_number": row.get("page_number"),
+                                            "bbox": row.get("bbox"),
+                                            "content_hash": row.get("content_hash")
+                                        })
+                                    return {
+                                        "answer": results,
+                                        "provenance_chain": provenance_chain,
+                                        "tool_used": "structured_query"
+                                    }
+                                # 2. If doc_id and topic/section keywords, try pageindex_navigate
+                                if doc_id and re.search(r"section|pageindex|toc|table of contents|chapter|part|topic", query, re.IGNORECASE):
+                                    matches = self.pageindex_navigate(doc_id, query)
+                                    provenance_chain = []
+                                    for section in matches:
+                                        provenance_chain.append({
+                                            "document_name": section.get("document_name"),
+                                            "page_number": section.get("page_start"),
+                                            "bbox": None,
+                                            "content_hash": None
+                                        })
+                                    return {
+                                        "answer": matches,
+                                        "provenance_chain": provenance_chain,
+                                        "tool_used": "pageindex_navigate"
+                                    }
+                                # 3. Default: semantic_search (with fallback to pageindex if no results)
+                                hits = self.semantic_search(query, top_k=3)
+                                provenance_chain = [h.get("provenance", {}) for h in hits]
+                                answer = [h["content"] for h in hits]
+                                # Optionally, aggregate with pageindex_navigate if doc_id is given and semantic_search is ambiguous
+                                if doc_id and not hits:
+                                    matches = self.pageindex_navigate(doc_id, query)
+                                    answer.extend([m.get("summary") for m in matches])
+                                    provenance_chain.extend([
+                                        {
+                                            "document_name": m.get("document_name"),
+                                            "page_number": m.get("page_start"),
+                                            "bbox": None,
+                                            "content_hash": None
+                                        } for m in matches
+                                    ])
+                                return {
+                                    "answer": answer,
+                                    "provenance_chain": provenance_chain,
+                                    "tool_used": "semantic_search"
+                                }
         with open(pageindex_path, "r", encoding="utf-8") as f:
             pageindex = json.load(f)
 
