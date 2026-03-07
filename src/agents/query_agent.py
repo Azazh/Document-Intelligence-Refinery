@@ -33,8 +33,25 @@ class ProvenanceChainEntry:
         }
 
 class QueryAgent:
+    def _log_query(self, query_type: str, query: str, answer: str, provenance_chain: list, extra: dict = None):
+        import os, json, datetime
+        log_dir = ".refinery"
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "query_ledger.jsonl")
+        entry = {
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "query_type": query_type,
+            "query": query,
+            "answer": answer,
+            "provenance_chain": provenance_chain,
+        }
+        if extra:
+            entry.update(extra)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
     def __init__(self, chroma_collection="ldu_collection", facttable_path="facttable.db"):
-        self.chroma_client = chromadb.Client()
+        # Use persistent client to match ingestion/inspection
+        self.chroma_client = chromadb.PersistentClient(path="chroma_store")
         self.collection = self.chroma_client.get_or_create_collection(chroma_collection)
         self.facttable_path = facttable_path
 
@@ -68,7 +85,7 @@ class QueryAgent:
         search_section(root)
         return matches
 
-    def semantic_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def semantic_search(self, query: str, top_k: int = 5, log: bool = False) -> List[Dict[str, Any]]:
         """
         Retrieve relevant LDUs from ChromaDB using embedding similarity.
         Returns top_k LDUs with provenance info.
@@ -95,19 +112,30 @@ class QueryAgent:
                 "document_name": meta.get("document_name"),
                 "page_number": meta.get("page_refs"),
                 "bbox": meta.get("bounding_box"),
-                "content_hash": meta.get("content_hash")
+                "content_hash": meta.get("content_hash"),
+                "section": meta.get("parent_section")
             }
             hits.append(hit)
+        if log and hits:
+            self._log_query("semantic_search", query, hits[0]["content"], [hits[0]["provenance"]])
         return hits
 
     def structured_query(self, sql: str) -> List[Dict[str, Any]]:
         """
-        Query FactTable (SQLite) for answers.
+        Query FactTable (PostgreSQL) for answers.
         Returns a list of result rows as dicts.
         """
-        conn = sqlite3.connect(self.facttable_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+        import psycopg2
+        import psycopg2.extras
+        # Use the same credentials as FactTableExtractor
+        conn = psycopg2.connect(
+            dbname="refinery_ai_document_intelligence",
+            user="postgres",
+            password="5492460",
+            host="localhost",
+            port=5432
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
             cur.execute(sql)
             rows = cur.fetchall()
@@ -125,9 +153,11 @@ class QueryAgent:
         """
         hits = self.semantic_search(query, top_k=1)
         if not hits:
+            self._log_query("answer_with_provenance", query, None, [])
             return {"answer": None, "provenance_chain": []}
         hit = hits[0]
         provenance = hit.get("provenance", {})
+        self._log_query("answer_with_provenance", query, hit["content"], [provenance])
         return {
             "answer": hit["content"],
             "provenance_chain": [provenance]
@@ -136,20 +166,32 @@ class QueryAgent:
     def audit_mode(self, claim: str) -> Dict[str, Any]:
         """
         Verify claim with source citation or flag as unverifiable.
-        Uses semantic search to find supporting evidence.
+        Uses semantic search to find supporting evidence. Enhanced: fuzzy match and check top_k results.
         """
-        hits = self.semantic_search(claim, top_k=1)
+        from difflib import SequenceMatcher
+        hits = self.semantic_search(claim, top_k=5)
         if not hits:
+            self._log_query("audit_mode", claim, None, [], {"verdict": "not found / unverifiable"})
             return {"claim": claim, "verdict": "not found / unverifiable", "provenance_chain": []}
-        hit = hits[0]
-        provenance = hit.get("provenance", {})
-        # Simple check: if the top hit's content contains the claim (case-insensitive)
-        if claim.lower() in hit["content"].lower():
-            verdict = "verified"
-        else:
-            verdict = "not found / unverifiable"
+        # Fuzzy match: check if claim is similar to any hit's content
+        threshold = 0.7  # similarity threshold (0-1)
+        for hit in hits:
+            content = hit["content"].lower()
+            claim_l = claim.lower()
+            ratio = SequenceMatcher(None, claim_l, content).ratio()
+            if claim_l in content or ratio > threshold:
+                provenance = hit.get("provenance", {})
+                self._log_query("audit_mode", claim, hit["content"], [provenance], {"verdict": "verified"})
+                return {
+                    "claim": claim,
+                    "verdict": "verified",
+                    "provenance_chain": [provenance]
+                }
+        # If no match found
+        provenance = hits[0].get("provenance", {})
+        self._log_query("audit_mode", claim, hits[0]["content"], [provenance], {"verdict": "not found / unverifiable"})
         return {
             "claim": claim,
-            "verdict": verdict,
+            "verdict": "not found / unverifiable",
             "provenance_chain": [provenance]
         }

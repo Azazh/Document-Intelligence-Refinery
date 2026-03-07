@@ -76,6 +76,7 @@ class LDU(BaseModel):
     token_count: int
     content_hash: str
     metadata: Optional[Dict[str, Any]] = None
+    document_name: Optional[str] = None  # Name of the source document
 
     @field_validator('content')
     @classmethod
@@ -157,6 +158,7 @@ class PageIndexSection(BaseModel):
     key_entities: List[str] = []
     summary: Optional[str] = None
     data_types_present: List[str] = []  # e.g., ['table', 'figure']
+    ldu_ids: List[str] = []  # List of LDU IDs belonging to this section
 
     @field_validator('page_end')
     @classmethod

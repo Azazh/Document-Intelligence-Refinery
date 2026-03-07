@@ -89,7 +89,7 @@ class PageIndexBuilder:
         self.llm_provider = llm_provider or LLMProvider()
         self.llm_provider_name = llm_provider_name
 
-    def build(self, ldu_list: List[LDU]) -> PageIndexSection:
+    def build(self, ldu_list: List[LDU], doc_id: str = None, export_json: bool = True) -> PageIndexSection:
         """
         Build a PageIndex tree from LDUs.
         Args:
@@ -98,49 +98,33 @@ class PageIndexBuilder:
             PageIndexSection: Root section of the PageIndex tree
         """
         try:
-            # Group LDUs by parent_section (simple flat tree for demo)
+            # Group LDUs by section and parent_section for hierarchy
             section_map: Dict[str, List[LDU]] = {}
+            parent_map: Dict[str, str] = {}  # section -> parent_section
             for ldu in ldu_list:
                 section = ldu.parent_section or "root"
                 section_map.setdefault(section, []).append(ldu)
+                if ldu.chunk_type == 'header' and ldu.content:
+                    parent_map[ldu.content] = ldu.parent_section or "root"
+
+            # Build section hierarchy: section -> [child_section_titles]
+            children_map: Dict[str, list] = {}
+            for child, parent in parent_map.items():
+                children_map.setdefault(parent, []).append(child)
 
             def summarize_section(ldus, section_title):
-                # Pre-filter: skip boilerplate sections
                 section_text = "\n".join(ldu.content for ldu in ldus)
-                # --- Smart selection: Only summarize if section is 'meaty' ---
-                # 1. Skip if total word count < 300 and no child sections
-                word_count = len(section_text.split())
-                has_child_sections = False
-                # Try to infer from LDU metadata if this section has children
-                for ldu in ldus:
-                    meta = ldu.metadata or {}
-                    if meta.get("has_children") or meta.get("child_sections"):
-                        has_child_sections = True
-                        break
-                if word_count < 300 and not has_child_sections:
-                    return f"[Skipped short/atomic section: {section_title}]"
-
-                # 2. Only summarize if heading_level <= 3 (if available)
-                heading_level = None
-                for ldu in ldus:
-                    meta = ldu.metadata or {}
-                    if "heading_level" in meta:
-                        heading_level = meta["heading_level"]
-                        break
-                if heading_level is not None and heading_level > 3:
-                    return f"[Skipped low-level heading: {section_title}]"
+                # Skip LLM for single-word/number/short/atomic sections
+                import re
+                sentences = re.split(r'(?<=[.!?]) +', section_text)
+                num_sentences = sum(1 for s in sentences if len(s.strip().split()) > 3)
+                if num_sentences < 2:
+                    return f"[Skipped: not enough sentences for LLM summary: {section_title}]"
                 # Pre-filter: skip boilerplate sections
-                section_text = "\n".join(ldu.content for ldu in ldus)
                 if self.is_boilerplate(section_title) or self.is_boilerplate(section_text):
                     return f"[Skipped boilerplate: {section_title}]"
-
-                # Prioritize 'meaty' sections: tables, figures, lists
-                if any(ldu.chunk_type in ("table", "figure", "list") for ldu in ldus):
-                    # Heuristic summaries for tables/lists already handled below
-                    pass
                 # Heuristic: If all LDUs are tables, use header+first row as summary
                 if all(ldu.chunk_type == "table" for ldu in ldus):
-                    # Try to extract headers and first row from metadata
                     headers = []
                     first_row = []
                     for ldu in ldus:
@@ -162,19 +146,18 @@ class PageIndexBuilder:
                         if "items" in meta:
                             items.extend(meta["items"])
                         else:
-                            # Try to split content into lines
                             items.extend(ldu.content.splitlines())
                         if len(items) >= 3:
                             break
                     summary = f"List: {section_title}. Top items: {items[:3]}"
                     return summary
                 # Otherwise, fallback to hybrid: extract keywords, then LLM summary
-                # (section_text already defined above)
                 keywords = self.extract_keywords(section_text)
                 if len(section_text) > 4000:
                     section_text = section_text[:4000] + "..."
                 try:
                     summary = self.llm_provider.summarize(section_text, provider=self.llm_provider_name)
+                    print(f"[DEBUG] LLM summary raw response for section '{section_title}': {summary}")
                 except Exception as e:
                     summary = f"[LLM summary error: {e}]"
                 if keywords:
@@ -202,33 +185,53 @@ class PageIndexBuilder:
                         section, _ = future_to_section[future]
                         summaries[section] = future.result()
 
-            root = PageIndexSection(
-                section_id="root",
-                title="Document Root",
-                page_start=min(ldu.page_refs[0] for ldu in ldu_list if ldu.page_refs),
-                page_end=max(ldu.page_refs[-1] for ldu in ldu_list if ldu.page_refs),
-                child_sections=[],
-                key_entities=[],
-                summary=summaries["root"],
-                data_types_present=list(set(ldu.chunk_type for ldu in ldu_list))
-            )
-            # Add child sections
-            for section, ldus in section_map.items():
-                if section == "root":
-                    continue
-                section_summary = summaries.get(section, "[Summary unavailable]")
-                child = PageIndexSection(
-                    section_id=section,
-                    title=section,
-                    page_start=min(ldu.page_refs[0] for ldu in ldus if ldu.page_refs),
-                    page_end=max(ldu.page_refs[-1] for ldu in ldus if ldu.page_refs),
-                    child_sections=[],
-                    key_entities=[],
-                    summary=section_summary,
-                    data_types_present=list(set(ldu.chunk_type for ldu in ldus))
+            # Add chunk_ids to each section
+
+            def get_chunk_ids(ldus):
+                # Always include LDU IDs if present, else fallback to index
+                ids = []
+                for idx, ldu in enumerate(ldus):
+                    if hasattr(ldu, 'ldu_id') and ldu.ldu_id:
+                        ids.append(ldu.ldu_id)
+                    else:
+                        ids.append(str(idx))
+                return ids
+
+            def extract_entities(ldus):
+                # Simple keyword extraction for key_entities
+                text = " ".join(ldu.content for ldu in ldus)
+                return self.extract_keywords(text, top_k=7)
+
+            def build_section(section_title):
+                ldus = section_map.get(section_title, [])
+                # Recursively build child sections
+                child_titles = children_map.get(section_title, [])
+                child_sections = [build_section(child) for child in child_titles]
+                summary = summaries.get(section_title, "[Summary unavailable]")
+                ldu_ids = [ldu.ldu_id for ldu in ldus if hasattr(ldu, 'ldu_id') and ldu.ldu_id]
+                return PageIndexSection(
+                    section_id=section_title,
+                    title=section_title,
+                    page_start=min(ldu.page_refs[0] for ldu in ldus if ldu.page_refs) if ldus else 1,
+                    page_end=max(ldu.page_refs[-1] for ldu in ldus if ldu.page_refs) if ldus else 1,
+                    child_sections=child_sections,
+                    key_entities=extract_entities(ldus),
+                    summary=summary,
+                    data_types_present=list(set(ldu.chunk_type for ldu in ldus)),
+                    chunk_ids=get_chunk_ids(ldus),
+                    ldu_ids=ldu_ids
                 )
-                root.child_sections.append(child)
-            print(f"[DEBUG] Built PageIndex with {len(root.child_sections)} sections (LLM summaries included, parallelized).")
+
+            root = build_section("root")
+            print(f"[DEBUG] Built PageIndex with {len(root.child_sections)} top-level sections (LLM summaries included, parallelized).")
+            # Export as JSON if requested
+            if export_json and doc_id:
+                import os, json
+                os.makedirs(".refinery/pageindex", exist_ok=True)
+                out_path = f".refinery/pageindex/pageindex_{doc_id}.json"
+                with open(out_path, "w", encoding="utf-8") as f:
+                    json.dump(root.model_dump(), f, ensure_ascii=False, indent=2)
+                print(f"[DEBUG] PageIndex exported to {out_path}")
             return root
         except Exception as e:
             print(f"[ERROR] Exception in PageIndexBuilder.build: {e}")

@@ -9,21 +9,21 @@ from src.agents.query_agent import QueryAgent
 agent = QueryAgent()
 
 # ---- Test PageIndex Navigation ----
-doc_id = "631bf3c1-aa0b-4ba6-b435-9db40e0a85a0"  # Use just the UUID part for doc_id
+doc_id = "d0c35365-b660-4063-90be-77220ca09e2f"  # Use just the UUID part for doc_id
 print("\n--- PageIndex Navigation ---")
-sections = agent.pageindex_navigate(doc_id, "EXIM")
+sections = agent.pageindex_navigate(doc_id, "ATM")
 for s in sections:
     print(s)
 
 # ---- Test Semantic Search ----
 print("\n--- Semantic Search ---")
-results = agent.semantic_search("total assets for 2024", top_k=3)
+results = agent.semantic_search("Key figures in millions of Birr?", top_k=3)
 for r in results:
     print(r)
 
 # ---- Test Structured Query ----
 print("\n--- Structured Query ---")
-sql = "SELECT * FROM fact_table WHERE key='revenue' AND year=2024"  # Adjust table/fields as needed
+sql = "SELECT * FROM fact_table WHERE key='Subsidiaries' AND year=2018"  # Adjust table/fields as needed
 rows = agent.structured_query(sql)
 for row in rows:
     print(row)

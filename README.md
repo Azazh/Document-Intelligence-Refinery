@@ -1,4 +1,3 @@
-
 # RefineryAI: Document Intelligence Pipeline
 
 RefineryAI is a production-grade, multi-stage agentic pipeline for unstructured document extraction and intelligence. It features classification-aware, spatially-indexed, provenance-preserving extraction, semantic chunking, and queryable knowledge for enterprise-scale document corpora.
@@ -17,15 +16,23 @@ RefineryAI is a production-grade, multi-stage agentic pipeline for unstructured 
 ```
 src/
   models/           # Pydantic schemas: DocumentProfile, ExtractedDocument, LDU, PageIndex, ProvenanceChain
-  agents/           # Triage, ExtractionRouter, Chunker, Indexer, QueryAgent
-  strategies/       # FastTextExtractor, LayoutExtractor, VisionExtractor
-tests/              # Unit tests
+  agents/           # All pipeline agents
+  strategies/       # Extraction strategies
 .refinery/
-  profiles/         # DocumentProfile JSON outputs
-  extraction_ledger.jsonl  # Extraction event logs
-rubric/             # extraction_rules.yaml and rubric files
+  profiles/         # DocumentProfile JSONs
+  pageindex/        # PageIndex trees (JSON)
+  extraction_ledger.jsonl  # Extraction logs
+  ldus_*.json       # LDUs for each document
+rubric/             # extraction_rules.yaml, domain_keywords.yaml
+scripts/            # Utility scripts (inspect, clear chroma, etc.)
+tests/              # Unit and integration tests
+Dockerfile          # Containerization
+Makefile            # Build, run, test, and utility commands
 pyproject.toml      # Locked dependencies
 README.md           # This file
+DOMAIN_NOTES.md     # Domain onboarding notes
+IMPLEMENTATION_APPROACH.md  # Engineering rationale
+report/             # Final report and diagrams
 ```
 
 
@@ -104,3 +111,4 @@ azazh-wuletawu
 
 ## License
 No license specified. All rights reserved unless otherwise stated.
+
